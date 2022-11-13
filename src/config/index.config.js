@@ -16,7 +16,7 @@ export const DB_PAIDIFY_SCHEMA = process.env.DB_PAIDIFY_SCHEMA || 'paidify';
 export const DB_UNIV_SCHEMA = process.env.DB_UNIV_SCHEMA || 'univ';
 
 // balance_gateway
-export const BALANCE_GATEWAY_URL = process.env.BALANCE_GATEWAY_URL || 'http://localhost:3001';
+export const BALANCE_GATEWAY_URL = process.env.BALANCE_GATEWAY_URL || '';
 
 // jwt
 export const JWT_SECRET = process.env.JWT_SECRET || 'secret';
