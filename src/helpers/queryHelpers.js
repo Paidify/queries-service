@@ -1,4 +1,4 @@
-import models from "./models.js";
+import models from './models.js';
 
 export function selectClause(select) {
     const inserted = [];

@@ -1,16 +1,14 @@
 import express from 'express';
-import poolU from "./services/dbUniv.js";
-import poolP from "./services/dbPaidify.js";
-import pkg from '../package.json' assert { type: "json" };
+import poolU from './services/dbUniv.js';
+import poolP from './services/dbPaidify.js';
+import pkg from '../package.json' assert { type: 'json' };
+import v1 from './routes/index.routes.js';
 
 const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use((req, _, next) => {
-    console.log(`${req.method} ${req.url}`);
-    next();
-});
+app.use(morgan('dev'));
 
 app.use((_, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
@@ -45,6 +43,7 @@ app.get('/ping', async (_, res) => {
 
     res.status(200).json(results);
 });
+app.use('/v1', v1);
 app.use((_, res) => res.status(404).send('Not Found'));
 
 export default app;
