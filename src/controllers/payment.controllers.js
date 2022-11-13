@@ -13,36 +13,26 @@ export async function readOne(req, res) {
         payment = await readElement(
             'payment',
             {
-                'payment': ['id', 'amount', 'balance', 'date', 'effective_date', 'ref_number',
-                  'num_installments', 'fulfilled', 'completed', 'campus_id', 'payment_concept_id'],
+                'payment': ['id', 'date', 'gateway_date', 'ref_number', 'num_installments',
+                    'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
+                'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful']
             },
-            ['LEFT JOIN card_type ON payment.card_type_id = card_type.id'],
+            [
+                'LEFT JOIN card_type ON payment.card_type_id = card_type.id',
+                'LEFT JOIN payment_settled ON payment.id = payment_settled.payment_id'
+            ],
             { 'payment.id': id },
             poolP
         );
-    } catch(err) {}
-
-    if(!payment) {
-        try {
-            payment = await readElement(
-                'payment_req',
-                {
-                    'payment': ['id', 'date', 'ref_number', 'num_installments', 'campus_id',
-                        'payment_concept_id'],
-                    'card_type': ['card_type'],
-                },
-                ['LEFT JOIN card_type ON payment_req.card_type_id = card_type.id'],
-                { 'payment.id': id },
-                poolP
-            );
-        } catch (err) {
-            if(err.message === 'Not Found') {
-                return res.status(404).json({ message: 'Payment not found' });
-            }
-            return res.status(500).json({ message: 'Internal server error' });
+    } catch(err) {
+        if(err.message === 'Not found') {
+            return res.status(404).json({ message: 'Payment not found' });
         }
+        return res.status(500).json({ message: 'Internal server error' });
     }
+    if(!payment.effective_date) payment = removeNull(payment);
+
     try {
         payment.campus = (await readElement(
             'campus', { 'campus': ['campus'] }, [], { 'id': payment.campus_id }, poolU
@@ -74,38 +64,22 @@ export async function readMany(req, res) {
         payments = await readElements(
             'payment',
             {
-                'payment': ['id', 'amount', 'balance', 'date', 'effective_date', 'ref_number',
-                  'num_installments', 'fulfilled', 'completed', 'campus_id', 'payment_concept_id'],
+                'payment': ['id', 'date', 'gateway_date', 'ref_number', 'num_installments',
+                    'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
+                'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful']
             },
-            ['LEFT JOIN card_type ON payment.card_type_id = card_type.id'],
-            where,
-            limit,
-            order,
-            poolP
+            [
+                'LEFT JOIN card_type ON payment.card_type_id = card_type.id',
+                'LEFT JOIN payment_settled ON payment.id = payment_settled.payment_id'
+            ],
+            where, limit, order, poolP
         );
     } catch(err) {
-        console.log(err);
         return res.status(500).json({ message: 'Internal server error' });
     }
-
-    try {
-        payments = payments.concat(await readElements(
-            'payment_req',
-            {
-                'payment': ['id', 'date', 'ref_number', 'num_installments', 'campus_id',
-                    'payment_concept_id'],
-                'card_type': ['card_type'],
-            },
-            ['LEFT JOIN card_type ON payment_req.card_type_id = card_type.id'],
-            where,
-            limit,
-            order,
-            poolP
-        ));
-    } catch(err) {
-        console.log(err);
-        return res.status(500).json({ message: 'Internal server error' });
+    for(let i = 0; i < payments.length; i++) {
+        if(!payments[i].effective_date) payments[i] = removeNull(payments[i]);
     }
     
     let campuses = [], payConcepts = [];
@@ -117,11 +91,7 @@ export async function readMany(req, res) {
         payConcepts = await readElements(
             'payment_concept',
             { 'payment_concept': ['id', 'payment_concept', 'amount'] },
-            [],
-            {},
-            null,
-            null,
-            poolU
+            [], {}, null, null, poolU
         );
     } catch(err) {}
 

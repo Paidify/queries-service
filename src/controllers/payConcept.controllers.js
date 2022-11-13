@@ -35,6 +35,7 @@ export async function readMany(req, res) {
             where, limit, order, poolU
         );
     } catch(err) {
+        console.log(err);
         return res.status(500).json({ message: 'Internal server error' });
     }
     res.status(200).json(payConcepts);

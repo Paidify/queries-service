@@ -1,6 +1,8 @@
 import models from './models.js';
 
 export function selectClause(select) {
+    if(!select) return 'SELECT *';
+
     const inserted = [];
     return `SELECT ${Object.keys(select).map(table => {
         if(select[table] === '*') { // Not the best way to handle asterisk, but it works if schemas don't share table names and these have different columns
@@ -15,10 +17,12 @@ export function selectClause(select) {
 }
 
 export function joinClauses(joins) {
-    return joins.join('\n');
+    return joins ? joins.join('\n') : '';
 }
 
 export function whereClause(query) {
+    if(!query) return '';
+    
     const formatValue = value => isNaN(value) ? `'${value}'` : value;
 
     const logicOp = query.$or ? ' OR' : ' AND';

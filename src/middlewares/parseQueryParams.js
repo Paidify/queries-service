@@ -5,7 +5,7 @@ export default function(req, _, next) {
     const { $offset, $limit, $sort, ...rest } = query;
 
     const mysqlQuery = {};
-    if(Object.keys(rest).length) mysqlQuery.where = rest;
+    mysqlQuery.where = rest;
     if($limit) mysqlQuery.limit = { $limit, $offset };
     if($sort) mysqlQuery.order = {
         by: $sort.slice(1),

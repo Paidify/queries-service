@@ -12,8 +12,8 @@ export async function readOne(req, res) {
             'payment_method',
             {
                 'payment_method': ['id', 'owner', 'card_number'],
-                'card_type': ['type'],
-                'card_category': ['category']
+                'card_type': ['card_type'],
+                'card_category': ['card_category']
             },
             [
                 'LEFT JOIN card_type ON payment_method.card_type_id = card_type.id',
@@ -40,8 +40,8 @@ export async function readMany(req, res) {
             'payment_method',
             {
                 'payment_method': ['id', 'owner', 'card_number'],
-                'card_type': ['type'],
-                'card_category': ['category']
+                'card_type': ['card_type'],
+                'card_category': ['card_category']
             },
             [
                 'LEFT JOIN card_type ON payment_method.card_type_id = card_type.id',

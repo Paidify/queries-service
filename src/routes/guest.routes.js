@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { ROLE_ADMIN } from '../config/constants.js';
 import {
     createOne, readOne, readMany, deleteOne, readPayment
 } from '../controllers/guest.controllers.js';
@@ -14,6 +15,6 @@ router.get('/:id', [verifyToken, midAdmin], readOne);
 router.post('/', createOne);
 router.delete('/:id', [verifyToken, midAdmin], deleteOne);
 
-router.get('/payment', readPayment);
+router.post('/payment', readPayment);
 
 export default router;

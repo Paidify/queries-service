@@ -1,7 +1,15 @@
-// function that receives and object and returns the same object ignoring undefined values
 export function removeUndefined(obj) {
     return Object.keys(obj).reduce((acc, key) => {
         if (obj[key] !== undefined) {
+            acc[key] = obj[key];
+        }
+        return acc;
+    }, {});
+}
+
+export function removeNull(obj) {
+    return Object.keys(obj).reduce((acc, key) => {
+        if (obj[key] !== null) {
             acc[key] = obj[key];
         }
         return acc;

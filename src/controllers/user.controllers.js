@@ -8,6 +8,7 @@ import {
     updateOne as updateElement
 } from '../helpers/crud.js';
 import { CARD_TYPE_CREDIT } from '../config/constants.js';
+import { removeNull } from '../helpers/utils.js';
 
 // USERS
 
@@ -23,7 +24,7 @@ export async function readOne(req, res) {
         if(err.message === 'Not found') {
             return res.status(404).json({ message: 'User not found' });
         }
-        return res.status(500).json({ message: err.message });
+        return res.status(500).json({ message: 'Internal server error' });
     }
 
     try {
@@ -44,6 +45,7 @@ export async function readOne(req, res) {
                 'LEFT JOIN address ON person.address_id = address.id',
                 'LEFT JOIN city ON address.city_id = city.id',
                 'LEFT JOIN department ON city.department_id = department.id',
+                'LEFT JOIN campus ON univ_actor.campus_id = campus.id',
             ],
             { 'person.id': user.person_id },
             poolU
@@ -52,7 +54,7 @@ export async function readOne(req, res) {
         if(err.message === 'Not found') {
             return res.status(404).json({ message: 'Person not found' });
         }
-        return res.status(500).json({ message: err.message });
+        return res.status(500).json({ message: 'Internal server error' });
     }
     person.id = user.id;
     res.status(200).json({ user: person });
@@ -64,15 +66,15 @@ export async function readMany(req, res) {
     let users, persons;
     
     try {
-        users = await readElement(
-            'user', { 'user': ['id', 'person_id'] }, [], { id }, poolP
+        users = await readElements(
+            'user', { 'user': ['id', 'person_id'] }, [], {}, null, null, poolP
         );
     } catch (err) {
-        return res.status(500).json({ message: err.message });
+        return res.status(500).json({ message: 'Internal server error' });
     }
 
     try {
-        persons = await readElement(
+        persons = await readElements(
             'person',
             {
                 'person': ['id', 'first_name', 'last_name', 'email', 'doc_number'],
@@ -89,16 +91,19 @@ export async function readMany(req, res) {
                 'LEFT JOIN address ON person.address_id = address.id',
                 'LEFT JOIN city ON address.city_id = city.id',
                 'LEFT JOIN department ON city.department_id = department.id',
+                'LEFT JOIN campus ON univ_actor.campus_id = campus.id',
             ],
             {
                 ...where,
                 'person.id': users.map(user => user.person_id),
                 $or: true
             },
+            limit,
+            order,
             poolU
         );
     } catch (err) {
-        return res.status(500).json({ message: err.message });
+        return res.status(500).json({ message: 'Internal server error' });
     }
     res.status(200).json({ users: persons.map(person => ({
         ...person, id: users.find(user => user.person_id === person.id).id }))
@@ -138,15 +143,18 @@ export async function createPayMeth(req, res) {
         return res.status(500).json({ message: 'Internal server error' });
     }
 
+    // TODO: Validate card number with bank API
+
     try {
         payMeth = await createElement('payment_method', {
-            person_id: userId,
+            user_id: userId,
             card_type_id: cardTypeId,
             card_category_id: cardCategoryId,
             card_number,
             owner
         }, poolP);
     } catch (err) {
+        console.log(err);
         if (err.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ message: 'Duplicate entry' });
         }
@@ -166,8 +174,8 @@ export async function readPayMeth(req, res) {
             'payment_method',
             {
                 'payment_method': ['id', 'owner', 'card_number'],
-                'card_type': ['type'],
-                'card_category': ['category']
+                'card_type': ['card_type'],
+                'card_category': ['card_category'],
             },
             [
                 'LEFT JOIN card_type ON payment_method.card_type_id = card_type.id',
@@ -195,16 +203,14 @@ export async function readPayMeths(req, res) {
             'payment_method',
             {
                 'payment_method': ['id', 'owner', 'card_number'],
-                'card_type': ['type'],
-                'card_category': ['category']
+                'card_type': ['card_type'],
+                'card_category': ['card_category'],
             },
             [
                 'LEFT JOIN card_type ON payment_method.card_type_id = card_type.id',
                 'LEFT JOIN card_category ON payment_method.card_category_id = card_category.id'
             ],
-            {
-                where: where ? { ...where, 'payment_method.user_id': id } : { 'payment_method.user_id': id }
-            },
+            { ...where, 'payment_method.user_id': id },
             limit,
             order,
             poolP
@@ -263,7 +269,7 @@ export async function readPayConcept(req, res) {
             [
                 'JOIN payment_concept ON payment_concept_person.payment_concept_id = payment_concept.id'
             ],
-            { 'payment_concept.id': payConceptId, 'person_id': personId },
+            { 'payment_concept_person.id': payConceptId, 'person_id': personId },
             poolU
         );
     } catch (err) {
@@ -300,9 +306,7 @@ export async function readPayConcepts(req, res) {
             [
                 'JOIN payment_concept ON payment_concept_person.payment_concept_id = payment_concept.id'
             ],
-            {
-                where: where ? { ...where, 'person_id': personId } : { 'person_id': personId }
-            },
+            { ...where, 'person_id': personId },
             limit,
             order,
             poolU
@@ -333,36 +337,27 @@ export async function readPayment(req, res) {
         payment = await readElement(
             'payment',
             {
-                'payment': ['id', 'amount', 'balance', 'date', 'effective_date', 'ref_number',
-                  'num_installments', 'fulfilled', 'completed', 'campus_id', 'payment_concept_id'],
+                'payment': ['id', 'date', 'gateway_date', 'ref_number', 'num_installments',
+                    'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
+                'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful']
             },
-            ['LEFT JOIN card_type ON payment.card_type_id = card_type.id'],
+            [
+                'LEFT JOIN card_type ON payment.card_type_id = card_type.id',
+                'LEFT JOIN payment_settled ON payment.id = payment_settled.payment_id'
+            ],
             { 'payment.id': paymentId, 'payer_id': payerId },
             poolP
         );
-    } catch(err) {}
-
-    if(!payment) {
-        try {
-            payment = await readElement(
-                'payment_req',
-                {
-                    'payment': ['id', 'date', 'ref_number', 'num_installments', 'campus_id',
-                        'payment_concept_id'],
-                    'card_type': ['card_type'],
-                },
-                ['LEFT JOIN card_type ON payment_req.card_type_id = card_type.id'],
-                { 'payment.id': paymentId, 'payer_id': payerId },
-                poolP
-            );
-        } catch (err) {
-            if(err.message === 'Not Found') {
-                return res.status(404).json({ message: 'Payment not found' });
-            }
-            return res.status(500).json({ message: 'Internal server error' });
+    } catch(err) {
+        console.log(err);
+        if(err.message === 'Not found') {
+            return res.status(404).json({ message: 'Payment not found' });
         }
+        return res.status(500).json({ message: 'Internal server error' });
     }
+    if(!payment.effective_date) payment = removeNull(payment);
+
     try {
         payment.campus = (await readElement(
             'campus', { 'campus': ['campus'] }, [], { 'id': payment.campus_id }, poolU
@@ -389,7 +384,7 @@ export async function readPayment(req, res) {
 export async function readPayments(req, res) {
     const { id } = req.params;
     const { where, limit, order } = req.query;
-    let payerId, payments = [];
+    let payerId, payments;
 
     try {
         payerId = (await readElement('user', { 'user': ['payer_id'] }, [], { id }, poolP)).id;
@@ -404,42 +399,25 @@ export async function readPayments(req, res) {
         payments = await readElements(
             'payment',
             {
-                'payment': ['id', 'amount', 'balance', 'date', 'effective_date', 'ref_number',
-                  'num_installments', 'fulfilled', 'completed', 'campus_id', 'payment_concept_id'],
+                'payment': ['id', 'date', 'gateway_date', 'ref_number', 'num_installments',
+                    'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
+                'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful']
             },
-            ['LEFT JOIN card_type ON payment.card_type_id = card_type.id'],
-            {
-                where: where ? { ...where, 'payer_id': payerId } : { 'payer_id': payerId }
-            },
+            [
+                'LEFT JOIN card_type ON payment.card_type_id = card_type.id',
+                'LEFT JOIN payment_settled ON payment.id = payment_settled.payment_id'
+            ],
+            { ...where, 'payer_id': payerId },
             limit,
             order,
             poolP
         );
     } catch(err) {
-        console.log(err);
         return res.status(500).json({ message: 'Internal server error' });
     }
-
-    try {
-        payments = payments.concat(await readElements(
-            'payment_req',
-            {
-                'payment': ['id', 'date', 'ref_number', 'num_installments', 'campus_id',
-                    'payment_concept_id'],
-                'card_type': ['card_type'],
-            },
-            ['LEFT JOIN card_type ON payment_req.card_type_id = card_type.id'],
-            {
-                where: where ? { ...where, 'payer_id': payerId } : { 'payer_id': payerId }
-            },
-            limit,
-            order,
-            poolP
-        ));
-    } catch(err) {
-        console.log(err);
-        return res.status(500).json({ message: 'Internal server error' });
+    for(let i = 0; i < payments.length; i++) {
+        if(!payments[i].effective_date) payments[i] = removeNull(payments[i]);
     }
     
     let campuses = [], payConcepts = [];
@@ -451,11 +429,7 @@ export async function readPayments(req, res) {
         payConcepts = await readElements(
             'payment_concept',
             { 'payment_concept': ['id', 'payment_concept', 'amount'] },
-            [],
-            {},
-            null,
-            null,
-            poolU
+            [], {}, null, null, poolU
         );
     } catch(err) {}
 
@@ -491,18 +465,25 @@ export async function readInvoice(req, res) {
         invoice = await readElement(
             'invoice',
             {
-                'invoice': ['id', 'date', 'due_date', 'description', 'invoice_number'],
-                'payment': ['amount', 'num_installments', 'campus_id', 'payment_concept_id'],
+                'invoice': ['id', 'due_date', 'description', 'invoice_number'],
+                'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful'],
+                'payment': ['num_installments', 'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
             },
             [
-                'JOIN payment ON invoice.payment_id = payment.id',
+                'JOIN payment_settled ON invoice.payment_settled_id = payment_settled.id',
+                'JOIN payment ON payment_settled.payment_id = payment.id',
                 'LEFT JOIN card_type ON payment.card_type_id = card_type.id'
             ],
             { 'invoice.id': invoiceId, 'payer_id': payerId },
             poolP
         );
-    } catch(err) {}
+    } catch(err) {
+        if(err.message === 'Not found') {
+            return res.status(404).json({ message: 'Invoice not found' });
+        }
+        return res.status(500).json({ message: 'Internal server error' });
+    }
 
     try {
         invoice.campus = (await readElement(
@@ -545,17 +526,17 @@ export async function readInvoices(req, res) {
         invoices = await readElements(
             'invoice',
             {
-                'invoice': ['id', 'date', 'due_date', 'description', 'invoice_number'],
-                'payment': ['amount', 'num_installments', 'campus_id', 'payment_concept_id'],
+                'invoice': ['id', 'due_date', 'description', 'invoice_number'],
+                'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful'],
+                'payment': ['num_installments', 'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
             },
             [
-                'JOIN payment ON invoice.payment_id = payment.id',
+                'JOIN payment_settled ON invoice.payment_settled_id = payment_settled.id',
+                'JOIN payment ON payment_settled.payment_id = payment.id',
                 'LEFT JOIN card_type ON payment.card_type_id = card_type.id'
             ],
-            {
-                where: where ? { ...where, 'payer_id': payerId } : { 'payer_id': payerId }
-            },
+            { ...where, 'payer_id': payerId },
             limit,
             order,
             poolP
@@ -574,11 +555,7 @@ export async function readInvoices(req, res) {
         payConcepts = await readElements(
             'payment_concept',
             { 'payment_concept': ['id', 'payment_concept', 'amount'] },
-            [],
-            {},
-            null,
-            null,
-            poolU
+            [], {}, null, null, poolU
         );
     } catch(err) {}
 

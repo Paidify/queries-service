@@ -13,18 +13,25 @@ export async function readOne(req, res) {
         invoice = await readElement(
             'invoice',
             {
-                'invoice': ['id', 'date', 'due_date', 'description', 'invoice_number'],
-                'payment': ['amount', 'num_installments', 'campus_id', 'payment_concept_id'],
+                'invoice': ['id', 'due_date', 'description', 'invoice_number'],
+                'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful'],
+                'payment': ['num_installments', 'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
             },
             [
-                'JOIN payment ON invoice.payment_id = payment.id',
+                'JOIN payment_settled ON invoice.payment_settled_id = payment_settled.id',
+                'JOIN payment ON payment_settled.payment_id = payment.id',
                 'LEFT JOIN card_type ON payment.card_type_id = card_type.id'
             ],
             { 'invoice.id': id },
             poolP
         );
-    } catch(err) {}
+    } catch(err) {
+        if(err.message === 'Not found') {
+            return res.status(404).json({ message: 'Invoice not found' });
+        }
+        return res.status(500).json({ message: 'Internal server error' });
+    }
 
     try {
         invoice.campus = (await readElement(
@@ -57,18 +64,17 @@ export async function readMany(req, res) {
         invoices = await readElements(
             'invoice',
             {
-                'invoice': ['id', 'date', 'due_date', 'description', 'invoice_number'],
-                'payment': ['amount', 'num_installments', 'campus_id', 'payment_concept_id'],
+                'invoice': ['id', 'due_date', 'description', 'invoice_number'],
+                'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful'],
+                'payment': ['num_installments', 'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
             },
             [
-                'JOIN payment ON invoice.payment_id = payment.id',
+                'JOIN payment_settled ON invoice.payment_settled_id = payment_settled.id',
+                'JOIN payment ON payment_settled.payment_id = payment.id',
                 'LEFT JOIN card_type ON payment.card_type_id = card_type.id'
             ],
-            where,
-            limit,
-            order,
-            poolP
+            where, limit, order, poolP
         );
     } catch(err) {
         console.log(err);
@@ -84,11 +90,7 @@ export async function readMany(req, res) {
         payConcepts = await readElements(
             'payment_concept',
             { 'payment_concept': ['id', 'payment_concept', 'amount'] },
-            [],
-            {},
-            null,
-            null,
-            poolU
+            [], {}, null, null, poolU
         );
     } catch(err) {}
 

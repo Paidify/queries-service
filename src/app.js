@@ -3,6 +3,7 @@ import poolU from './services/dbUniv.js';
 import poolP from './services/dbPaidify.js';
 import pkg from '../package.json' assert { type: 'json' };
 import v1 from './routes/index.routes.js';
+import morgan from 'morgan';
 
 const app = express();
 
@@ -44,6 +45,6 @@ app.get('/ping', async (_, res) => {
     res.status(200).json(results);
 });
 app.use('/v1', v1);
-app.use((_, res) => res.status(404).send('Not Found'));
+app.use((_, res) => res.status(404).send('Not found'));
 
 export default app;

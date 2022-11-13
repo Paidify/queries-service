@@ -7,6 +7,7 @@ import {
     deleteOne as deleteElement,
     updateOne as updateElement
 } from '../helpers/crud.js';
+import { removeNull } from '../helpers/utils.js';
 
 // GUESTS
 
@@ -19,15 +20,15 @@ export async function createOne(req, res) {
     let guest, guestId, payerId, cityId, addressId, docTypeId;
     
     try {
-        docTypeId = (readElement('doc_type', { 'doc_type': [ 'id' ] }, [], { doc_type }, poolU)).id;
+        docTypeId = (await readElement('doc_type', { 'doc_type': [ 'id' ] }, [], { doc_type }, poolU)).id;
     } catch(err) {
-        if(err.message === 'Not Found') {
+        if(err.message === 'Not found') {
             return res.status(400).json({ message: 'Invalid document type' });
         }
         return res.status(500).json({ message: 'Internal server error' });
     }
     const guestFields = { first_name, last_name, email, doc_number, doc_type_id: docTypeId };
-
+    
     if(city && department) {
         try {
             cityId = (await readElement(
@@ -46,7 +47,7 @@ export async function createOne(req, res) {
     };
 
     try {
-        guest = readElement('guest', { 'guest': ['id'] }, [], { doc_number }, poolP);
+        guest = await readElement('guest', { 'guest': ['id', 'address_id'] }, [], { doc_number }, poolP);
     } catch(err) {}
 
     const connP = await poolP.getConnection();
@@ -58,8 +59,9 @@ export async function createOne(req, res) {
         } else {
             addressId = (await createElement('address', addressFields, connP)).insertId;
             guestFields.address_id = addressId;
-            guestId = (await createElement('guest', guestFields, connP)).insertId;
             payerId = (await createElement('payer', {}, connP)).insertId;
+            guestFields.payer_id = payerId;
+            guestId = (await createElement('guest', guestFields, connP)).insertId;
         }
         await connP.commit();
     } catch (err) {
@@ -93,27 +95,46 @@ export async function readOne(req, res) {
         guest = await readElement(
             'guest',
             {
-                'guest': ['id', 'first_name', 'last_name', 'email', 'doc_number'],
-                'address': ['zip_code', 'address_line'],
-                'city': ['city'],
-                'department': ['department'],
-                'doc_type': ['doc_type']
+                'guest': ['id', 'first_name', 'last_name', 'email', 'doc_number', 'doc_type_id'],
+                'address': ['zip_code', 'address_line', 'city_id'],
             },
-            [
-                'LEFT JOIN address ON guest.address_id = address.id',
-                'LEFT JOIN city ON address.city_id = city.id',
-                'LEFT JOIN department ON city.department_id = department.id',
-                'LEFT JOIN doc_type ON guest.doc_type_id = doc_type.id'
-            ],
+            ['LEFT JOIN address ON guest.address_id = address.id'],
             { 'guest.id': id },
             poolP
         );
     } catch(err) {
-        if(err.message === 'Not Found') {
+        if(err.message === 'Not found') {
             return res.status(404).json({ message: 'Guest not found' });
         }
         return res.status(500).json({ message: 'Internal server error' });
     }
+
+    if(guest.city_id) {
+        try {
+            const { city, department } = await readElement(
+                'city',
+                { 'city': ['city'], 'department': ['department'] },
+                ['JOIN department ON city.department_id = department.id'],
+                { 'city.id': guest.city_id },
+                poolU
+            );
+            guest.city = city;
+            guest.department = department;
+        } catch(err) {}
+    }
+    delete guest.city_id;
+
+    try {
+        guest.doc_type = (await readElement(
+            'doc_type',
+            { 'doc_type': ['doc_type'] },
+            [],
+            { 'id': guest.doc_type_id },
+            poolU
+        )).doc_type;
+    } catch(err) {}
+    delete guest.doc_type_id;
+
     return res.status(200).json(guest);
 }
 
@@ -124,26 +145,54 @@ export async function readMany(req, res) {
         guests = await readElements(
             'guest',
             {
-                'guest': ['id', 'first_name', 'last_name', 'email', 'doc_number'],
-                'address': ['zip_code', 'address_line'],
-                'city': ['city'],
-                'department': ['department'],
-                'doc_type': ['doc_type']
+                'guest': ['id', 'first_name', 'last_name', 'email', 'doc_number', 'doc_type_id'],
+                'address': ['zip_code', 'address_line', 'city_id'],
             },
-            [
-                'LEFT JOIN address ON guest.address_id = address.id',
-                'LEFT JOIN city ON address.city_id = city.id',
-                'LEFT JOIN department ON city.department_id = department.id',
-                'LEFT JOIN doc_type ON guest.doc_type_id = doc_type.id'
-            ],
-            where,
-            limit,
-            order,
-            poolP
+            ['LEFT JOIN address ON guest.address_id = address.id'],
+            where, limit, order, poolP
         );
     } catch(err) {
+        console.log(err);
         return res.status(500).json({ message: 'Internal server error' });
     }
+
+    let cities = [], departments = [], docTypes = [];
+    try {
+        cities = await readElements(
+            'city',
+            { 'city': ['id', 'city', 'department_id'] },
+            [], {}, null, null, poolU
+        );
+    } catch (err) {}
+
+    try {
+        departments = await readElements(
+            'department',
+            { 'department': ['id', 'department'] },
+            [], {}, null, null, poolU
+        );
+    } catch (err) {}
+
+    try {
+        docTypes = await readElements(
+            'doc_type',
+            { 'doc_type': ['id', 'doc_type'] },
+            [], {}, null, null, poolU
+        );
+    } catch (err) {}
+
+    guests.forEach(guest => {
+        const city = cities.find(city => city.id === guest.city_id);
+        if(city) {
+            guest.city = city.city;
+            guest.department = departments.find(dep => dep.id === city.department_id).department;
+        }
+        delete guest.city_id;
+
+        guest.doc_type = docTypes.find(docType => docType.id === guest.doc_type_id).doc_type;
+        delete guest.doc_type_id;
+    });
+
     return res.status(200).json(guests);
 }
 
@@ -153,7 +202,7 @@ export async function deleteOne(req, res) {
     try {
         guest = await readElement('guest', { 'guest': ['id', 'address_id', 'payer_id'] }, [], { id }, poolP);
     } catch(err) {
-        if(err.message === 'Not Found') {
+        if(err.message === 'Not found') {
             return res.status(404).json({ message: 'Guest not found' });
         }
         return res.status(500).json({ message: 'Internal server error' });
@@ -189,7 +238,7 @@ export async function readPayment(req, res) {
     try {
         await readElement('doc_type', { 'doc_type': ['id'] }, [], { doc_type }, poolU);
     } catch(err) {
-        if(err.message === 'Not Found') {
+        if(err.message === 'Not found') {
             return res.status(404).json({ message: 'Document type not found' });
         }
         return res.status(500).json({ message: 'Internal server error' });
@@ -199,36 +248,37 @@ export async function readPayment(req, res) {
         payment = await readElement(
             'payment',
             {
-                'payment': ['id', 'amount', 'balance', 'date', 'effective_date', 'ref_number',
-                  'num_installments', 'fulfilled', 'completed', 'payer_id', 'campus_id', 'payment_concept_id'],
+                'payment': ['id', 'date', 'gateway_date', 'ref_number', 'num_installments', 'payer_id', 
+                    'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
+                'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful'],
+                'invoice': ['due_date', 'description', 'invoice_number']
             },
-            ['LEFT JOIN card_type ON payment.card_type_id = card_type.id'],
+            [
+                'LEFT JOIN card_type ON payment.card_type_id = card_type.id',
+                'LEFT JOIN payment_settled ON payment.id = payment_settled.payment_id',
+                'LEFT JOIN invoice ON payment_settled.id = invoice.payment_settled_id'
+            ],
             { ref_number },
             poolP
         );
-    } catch(err) {}
-
-    if(!payment) {
-        try {
-            payment = await readElement(
-                'payment_req',
-                {
-                    'payment': ['id', 'date', 'ref_number', 'num_installments', 'payer_id', 'campus_id',
-                        'payment_concept_id'],
-                    'card_type': ['card_type'],
-                },
-                ['LEFT JOIN card_type ON payment_req.card_type_id = card_type.id'],
-                { ref_number },
-                poolP
-            );
-        } catch (err) {
-            if(err.message === 'Not Found') {
-                return res.status(404).json({ message: 'Payment not found' });
-            }
-            return res.status(500).json({ message: 'Internal server error' });
+    } catch(err) {
+        if(err.message === 'Not found') {
+            return res.status(404).json({ message: 'Payment not found' });
         }
+        return res.status(500).json({ message: 'Internal server error' });
     }
+
+    if(payment.payment_settled_id) {
+        payment.invoice = {
+            due_date: payment.due_date,
+            description: payment.description,
+            invoice_number: payment.invoice_number
+        }
+        delete payment.due_date;
+        delete payment.description;
+        delete payment.invoice_number;
+    } else payment = removeNull(payment);
 
     try {
         const { person_id } = await readElement(
@@ -249,7 +299,7 @@ export async function readPayment(req, res) {
             docNumber = guest.doc_number;
             docTypeId = guest.doc_type_id;
         } catch(err) {
-            if(err.message === 'Not Found') {
+            if(err.message === 'Not found') {
                 return res.status(404).json({ message: 'Guest not found' });
             }
             return res.status(500).json({ message: 'Internal server error' });
@@ -266,7 +316,7 @@ export async function readPayment(req, res) {
     } catch(err) {}
 
     try {
-        const {payment_concept, amount} = await readElement(
+        const { payment_concept, amount } = await readElement(
             'payment_concept',
             { 'payment_concept': ['payment_concept', 'amount'] },
             [],
@@ -274,16 +324,6 @@ export async function readPayment(req, res) {
             poolU
         );
         payment.payment_concept = { payment_concept, amount };
-    } catch(err) {}
-
-    try {
-        payment.invoice = await readElement(
-            'invoice',
-            { 'invoice': ['id', 'date', 'due_date', 'description', 'invoice_number'] },
-            [],
-            { 'payment_id': payment.id },
-            poolP
-        );
     } catch(err) {}
 
     delete payment.campus_id;
