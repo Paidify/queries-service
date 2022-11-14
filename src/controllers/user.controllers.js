@@ -8,7 +8,7 @@ import {
     updateOne as updateElement
 } from '../helpers/crud.js';
 import { CARD_TYPE_CREDIT } from '../config/constants.js';
-import { removeNull } from '../helpers/utils.js';
+import { removeNull, validateCardNumber } from '../helpers/utils.js';
 
 // USERS
 
@@ -114,6 +114,11 @@ export async function readMany(req, res) {
 
 export async function createPayMeth(req, res) {
     const { id } = req.params;
+    const { card_number, card_type, owner } = req.body;
+    if(!card_type || !owner || !card_number || !validateCardNumber(card_number)) {
+        return res.status(400).json({ message: 'Bad request' });
+    }
+    
     let userId;
     try {
         userId = (await readElement('user', { 'user': ['id'] }, [], { id }, poolP)).id;
@@ -124,7 +129,6 @@ export async function createPayMeth(req, res) {
         return res.status(500).json({ message: 'Internal server error' });
     }
 
-    const { card_number, card_type, owner } = req.body;
     let cardTypeId, payMeth;
     try {
         cardTypeId = (await readElement(

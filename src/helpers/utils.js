@@ -1,3 +1,5 @@
+import { CARD_FIRST_DIGIT_ALLOWED } from "../config/constants";
+
 export function removeUndefined(obj) {
     return Object.keys(obj).reduce((acc, key) => {
         if (obj[key] !== undefined) {
@@ -31,4 +33,10 @@ export function diff(obj1, obj2) {
         }
         return acc;
     }, {});
+}
+
+export function validateCardNumber(cardNumber) {
+    cardNumber = String(cardNumber);
+    const cardNumberRegex = /^\d{16}$/;
+    return cardNumberRegex.test(cardNumber) && CARD_FIRST_DIGIT_ALLOWED.includes(Number(cardNumber[0]));
 }
