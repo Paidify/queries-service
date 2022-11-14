@@ -15,9 +15,4 @@ router.use('/pay-methods', payMeths);
 router.use('/payments', payments);
 router.use('/invoices', invoices);
 
-router.get('/', (_, res) => res.status(200).json({
-    message: 'Welcome to the Queries Service v1',
-    apiVersion: '1.0'
-}));
-
 export default router;

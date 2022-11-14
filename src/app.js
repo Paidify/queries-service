@@ -4,6 +4,7 @@ import poolP from './services/dbPaidify.js';
 import pkg from '../package.json' assert { type: 'json' };
 import routes from './routes/index.routes.js';
 import morgan from 'morgan';
+import apiGateway from './api-gateway/apiGateway.js';
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.get('/ping', async (_, res) => {
     res.status(200).json(results);
 });
 app.use(routes);
+app.post('/api-gateway', async (_, res) => res.status(200).json(await apiGateway()));
 app.use((_, res) => res.status(404).json({ message: 'Not Found' }));
 
 export default app;
