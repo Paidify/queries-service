@@ -1,13 +1,8 @@
-import models from './models.js';
-
 export function selectClause(select) {
     if(!select) return 'SELECT *';
 
     const inserted = [];
     return `SELECT ${Object.keys(select).map(table => {
-        if(select[table] === '*') { // Not the best way to handle asterisk, but it works if schemas don't share table names and these have different columns
-            select[table] = models.paidify[table] ? models.paidify[table] : models.univ[table]; 
-        }
         return select[table].map(field => {
             const sel = `${table}.${field}${inserted.includes(field) ? ` AS ${table}_${field}` : ''}`;
             inserted.push(field);

@@ -124,21 +124,16 @@ export async function createPayMeth(req, res) {
         return res.status(500).json({ message: 'Internal server error' });
     }
 
-    const { card_number, card_type, card_category, owner } = req.body;
-    let cardTypeId, cardCategoryId, payMeth;
+    const { card_number, card_type, owner } = req.body;
+    let cardTypeId, payMeth;
     try {
         cardTypeId = (await readElement(
             'card_type', { 'card_type': ['id'] }, [], { card_type }, poolP
         )).id;
-        if(cardTypeId === CARD_TYPE_CREDIT) {
-            cardCategoryId = (await readElement(
-                'card_category', { 'card_category': ['id'] }, [], { card_category }, poolP
-            )).id;
-        }
     } catch(err) {
         console.log(err);
         if(err.message === 'Not found') {
-            return res.status(404).json({ message: 'Card type or card category not found' });
+            return res.status(404).json({ message: 'Card type not found' });
         }
         return res.status(500).json({ message: 'Internal server error' });
     }
@@ -147,11 +142,7 @@ export async function createPayMeth(req, res) {
 
     try {
         payMeth = await createElement('payment_method', {
-            user_id: userId,
-            card_type_id: cardTypeId,
-            card_category_id: cardCategoryId,
-            card_number,
-            owner
+            user_id: userId, card_number, card_type_id: cardTypeId, owner
         }, poolP);
     } catch (err) {
         console.log(err);
@@ -175,12 +166,8 @@ export async function readPayMeth(req, res) {
             {
                 'payment_method': ['id', 'owner', 'card_number'],
                 'card_type': ['card_type'],
-                'card_category': ['card_category'],
             },
-            [
-                'LEFT JOIN card_type ON payment_method.card_type_id = card_type.id',
-                'LEFT JOIN card_category ON payment_method.card_category_id = card_category.id'
-            ],
+            ['LEFT JOIN card_type ON payment_method.card_type_id = card_type.id'],
             { 'payment_method.id': payMethId, 'payment_method.user_id': id },
             poolP
         );
@@ -204,16 +191,10 @@ export async function readPayMeths(req, res) {
             {
                 'payment_method': ['id', 'owner', 'card_number'],
                 'card_type': ['card_type'],
-                'card_category': ['card_category'],
             },
-            [
-                'LEFT JOIN card_type ON payment_method.card_type_id = card_type.id',
-                'LEFT JOIN card_category ON payment_method.card_category_id = card_category.id'
-            ],
+            ['LEFT JOIN card_type ON payment_method.card_type_id = card_type.id'],
             { ...where, 'payment_method.user_id': id },
-            limit,
-            order,
-            poolP
+            limit, order, poolP
         );
     } catch (err) {
         console.log(err);
