@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { PORT, HOST, API_GATEWAY_URL } from '../config/index.config.js';
+import { HOST, API_GATEWAY_URL } from '../config/index.config.js';
 
 export default async function () {
     try {
@@ -9,8 +9,9 @@ export default async function () {
             headers: { 'Content-Type': 'application/json' },
             data: {
                 service: 'queries',
-                url: `${HOST}:${PORT}`,
-            }
+                url: HOST,
+            },
+            timeout: 10000,
         });
         return { message: response.data.message };
     } catch(err) {
