@@ -1,4 +1,4 @@
-import { CARD_FIRST_DIGIT_ALLOWED } from "../config/constants";
+import { CARD_FIRST_DIGIT_ALLOWED } from "../config/constants.js";
 
 export function removeUndefined(obj) {
     return Object.keys(obj).reduce((acc, key) => {
