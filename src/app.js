@@ -8,16 +8,18 @@ import apiGateway from './api-gateway/apiGateway.js';
 
 const app = express();
 
+app.set('json spaces', 2);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
-
+app.set('json spaces', 2);
 app.use((_, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, x-auth-token');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
     next();
 });
+
 app.get('/', (_, res) => res.status(200).json({
     message: 'Welcome to the Paidify Queries Service',
     version: pkg.version,

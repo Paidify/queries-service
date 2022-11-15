@@ -36,7 +36,7 @@ export function diff(obj1, obj2) {
 }
 
 export function validateCardNumber(cardNumber) {
+    if(!cardNumber) return false;
     cardNumber = String(cardNumber);
-    const cardNumberRegex = /^\d{16}$/;
-    return cardNumberRegex.test(cardNumber) && CARD_FIRST_DIGIT_ALLOWED.includes(Number(cardNumber[0]));
+    return /^\d{16}$/.test(cardNumber) && CARD_FIRST_DIGIT_ALLOWED.includes(Number(cardNumber[0]));
 }
