@@ -96,11 +96,9 @@ export async function readMany(req, res) {
             {
                 ...where,
                 'person.id': users.map(user => user.person_id),
-                $or: true
+                // $or: true
             },
-            limit,
-            order,
-            poolU
+            limit, order, poolU
         );
     } catch (err) {
         return res.status(500).json({ message: 'Internal server error' });
@@ -292,9 +290,7 @@ export async function readPayConcepts(req, res) {
                 'JOIN payment_concept ON payment_concept_person.payment_concept_id = payment_concept.id'
             ],
             { ...where, 'person_id': personId },
-            limit,
-            order,
-            poolU
+            limit, order, poolU
         );
     } catch (err) {
         console.log(err);
@@ -394,9 +390,7 @@ export async function readPayments(req, res) {
                 'LEFT JOIN payment_settled ON payment.id = payment_settled.payment_id'
             ],
             { ...where, 'payer_id': payerId },
-            limit,
-            order,
-            poolP
+            limit, order, poolP
         );
     } catch(err) {
         return res.status(500).json({ message: 'Internal server error' });
@@ -450,14 +444,14 @@ export async function readInvoice(req, res) {
         invoice = await readElement(
             'invoice',
             {
-                'invoice': ['id', 'due_date', 'description', 'invoice_number'],
+                'invoice': ['id', 'description', 'invoice_number'],
                 'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful'],
                 'payment': ['num_installments', 'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
             },
             [
                 'JOIN payment_settled ON invoice.payment_settled_id = payment_settled.id',
-                'JOIN payment ON payment_settled.payment_id = payment.id',
+                'LEFT JOIN payment ON payment_settled.payment_id = payment.id',
                 'LEFT JOIN card_type ON payment.card_type_id = card_type.id'
             ],
             { 'invoice.id': invoiceId, 'payer_id': payerId },
@@ -511,20 +505,18 @@ export async function readInvoices(req, res) {
         invoices = await readElements(
             'invoice',
             {
-                'invoice': ['id', 'due_date', 'description', 'invoice_number'],
+                'invoice': ['id', 'description', 'invoice_number'],
                 'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful'],
                 'payment': ['num_installments', 'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
             },
             [
                 'JOIN payment_settled ON invoice.payment_settled_id = payment_settled.id',
-                'JOIN payment ON payment_settled.payment_id = payment.id',
+                'LEFT JOIN payment ON payment_settled.payment_id = payment.id',
                 'LEFT JOIN card_type ON payment.card_type_id = card_type.id'
             ],
             { ...where, 'payer_id': payerId },
-            limit,
-            order,
-            poolP
+            limit, order, poolP
         );
     } catch(err) {
         console.log(err);

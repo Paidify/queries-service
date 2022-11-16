@@ -13,14 +13,14 @@ export async function readOne(req, res) {
         invoice = await readElement(
             'invoice',
             {
-                'invoice': ['id', 'due_date', 'description', 'invoice_number'],
+                'invoice': ['id', 'description', 'invoice_number'],
                 'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful'],
                 'payment': ['num_installments', 'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
             },
             [
                 'JOIN payment_settled ON invoice.payment_settled_id = payment_settled.id',
-                'JOIN payment ON payment_settled.payment_id = payment.id',
+                'LEFT JOIN payment ON payment_settled.payment_id = payment.id',
                 'LEFT JOIN card_type ON payment.card_type_id = card_type.id'
             ],
             { 'invoice.id': id },
@@ -64,14 +64,14 @@ export async function readMany(req, res) {
         invoices = await readElements(
             'invoice',
             {
-                'invoice': ['id', 'due_date', 'description', 'invoice_number'],
+                'invoice': ['id', 'description', 'invoice_number'],
                 'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful'],
                 'payment': ['num_installments', 'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
             },
             [
                 'JOIN payment_settled ON invoice.payment_settled_id = payment_settled.id',
-                'JOIN payment ON payment_settled.payment_id = payment.id',
+                'LEFT JOIN payment ON payment_settled.payment_id = payment.id',
                 'LEFT JOIN card_type ON payment.card_type_id = card_type.id'
             ],
             where, limit, order, poolP
