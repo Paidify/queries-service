@@ -1,13 +1,9 @@
 import poolU from '../services/dbUniv.js';
 import poolP from '../services/dbPaidify.js';
 import {
-    createOne as createElement,
     readOne as readElement,
     readMany as readElements,
-    deleteOne as deleteElement,
-    updateOne as updateElement
 } from '../helpers/crud.js';
-import { removeNull } from '../helpers/utils.js';
 
 // GUESTS
 export async function readOne(req, res) {

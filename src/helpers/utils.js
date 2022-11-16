@@ -10,12 +10,7 @@ export function removeUndefined(obj) {
 }
 
 export function removeNull(obj) {
-    return Object.keys(obj).reduce((acc, key) => {
-        if (obj[key] !== null) {
-            acc[key] = obj[key];
-        }
-        return acc;
-    }, {});
+    for (const key in obj) if (obj[key] === null) delete obj[key];
 }
 
 export function genOwnerName(firstName, lastName) {

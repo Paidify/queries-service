@@ -4,6 +4,7 @@ import {
     readOne as readElement,
     readMany as readElements
 } from '../helpers/crud.js';
+import { removeNull } from '../helpers/utils.js';
 
 export async function readOne(req, res) {
     const { id } = req.params;
@@ -16,11 +17,16 @@ export async function readOne(req, res) {
                 'payment': ['id', 'date', 'gateway_date', 'ref_number', 'num_installments',
                     'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
-                'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful']
+                'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful'],
+                'user': ['id'],
+                'guest': ['id']
             },
             [
                 'LEFT JOIN card_type ON payment.card_type_id = card_type.id',
-                'LEFT JOIN payment_settled ON payment.id = payment_settled.payment_id'
+                'LEFT JOIN payment_settled ON payment.id = payment_settled.payment_id',
+                'LEFT JOIN payer ON payment.payer_id = payer.id',
+                'LEFT JOIN user ON payer.id = user.payer_id',
+                'LEFT JOIN guest ON payer.id = guest.payer_id'
             ],
             { 'payment.id': id },
             poolP
@@ -31,7 +37,7 @@ export async function readOne(req, res) {
         }
         return res.status(500).json({ message: 'Internal server error' });
     }
-    if(!payment.effective_date) payment = removeNull(payment);
+    removeNull(payment);
 
     try {
         payment.campus = (await readElement(
@@ -58,7 +64,7 @@ export async function readOne(req, res) {
 
 export async function readMany(req, res) {
     const { where, limit, order } = req.query;
-    let payments = [];
+    let payments;
 
     try {
         payments = await readElements(
@@ -67,20 +73,26 @@ export async function readMany(req, res) {
                 'payment': ['id', 'date', 'gateway_date', 'ref_number', 'num_installments',
                     'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
-                'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful']
+                'payment_settled': ['amount', 'balance', 'effective_date', 'fulfilled', 'successful'],
+                'user': ['id'],
+                'guest': ['id']
             },
             [
                 'LEFT JOIN card_type ON payment.card_type_id = card_type.id',
-                'LEFT JOIN payment_settled ON payment.id = payment_settled.payment_id'
+                'LEFT JOIN payment_settled ON payment.id = payment_settled.payment_id',
+                'LEFT JOIN payer ON payment.payer_id = payer.id',
+                'LEFT JOIN user ON payer.id = user.payer_id',
+                'LEFT JOIN guest ON payer.id = guest.payer_id'
             ],
             where, limit, order, poolP
         );
     } catch(err) {
         return res.status(500).json({ message: 'Internal server error' });
     }
-    for(let i = 0; i < payments.length; i++) {
-        if(!payments[i].effective_date) payments[i] = removeNull(payments[i]);
-    }
+
+    if(payments.length === 0) return res.status(200).json([]);
+    
+    for (const payment of payments) removeNull(payment);
     
     let campuses = [], payConcepts = [];
     try {
@@ -95,14 +107,14 @@ export async function readMany(req, res) {
         );
     } catch(err) {}
 
-    for(let i = 0; i < payments.length; i++) {
-        payments[i].campus = campuses.find(campus => campus.id === payments[i].campus_id).campus;
+    for(const payment of payments) {
+        payment.campus = campuses.find(campus => campus.id === payment.campus_id).campus;
         const { payment_concept, amount } = payConcepts.find(
-            payConcept => payConcept.id === payments[i].payment_concept_id
+            payConcept => payConcept.id === payment.payment_concept_id
         );
-        payments[i].payment_concept = { payment_concept, amount };
-        delete payments[i].campus_id;
-        delete payments[i].payment_concept_id;
+        payment.payment_concept = { payment_concept, amount };
+        delete payment.campus_id;
+        delete payment.payment_concept_id;
     }
 
     res.status(200).json(payments);

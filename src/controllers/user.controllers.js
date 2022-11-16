@@ -73,6 +73,8 @@ export async function readMany(req, res) {
         return res.status(500).json({ message: 'Internal server error' });
     }
 
+    if(!users.length) return res.status(200).json([]);
+
     try {
         persons = await readElements(
             'person',
@@ -103,9 +105,11 @@ export async function readMany(req, res) {
     } catch (err) {
         return res.status(500).json({ message: 'Internal server error' });
     }
-    res.status(200).json({ users: persons.map(person => ({
-        ...person, id: users.find(user => user.person_id === person.id).id }))
-    });
+    res.status(200).json(persons.map(person => {
+        const user = users.find(user => user.person_id === person.id);
+        person.id = user ? user.id : null;
+        return person;
+    }));
 }
 
 // PAYMENT METHODS
@@ -337,7 +341,7 @@ export async function readPayment(req, res) {
         }
         return res.status(500).json({ message: 'Internal server error' });
     }
-    if(!payment.effective_date) payment = removeNull(payment);
+    removeNull(payment);
 
     try {
         payment.campus = (await readElement(
@@ -395,9 +399,7 @@ export async function readPayments(req, res) {
     } catch(err) {
         return res.status(500).json({ message: 'Internal server error' });
     }
-    for(let i = 0; i < payments.length; i++) {
-        if(!payments[i].effective_date) payments[i] = removeNull(payments[i]);
-    }
+    for (const payment of payments) removeNull(payment);
     
     let campuses = [], payConcepts = [];
     try {

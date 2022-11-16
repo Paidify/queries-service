@@ -1,18 +1,22 @@
 import { Router } from 'express';
 import guest from './guest.routes.js';
 import user from './user.routes.js';
-import payConcepts from './payConcept.routes.js';
-import payMeths from './payMeth.routes.js';
-import payments from './payment.routes.js';
-import invoices from './invoice.routes.js';
+import payConcept from './payConcept.routes.js';
+import payMeth from './payMeth.routes.js';
+import payment from './payment.routes.js';
+import payReq from './payReq.routes.js';
+import paySettled from './paySettled.routes.js';
+import invoice from './invoice.routes.js';
 
 const router = Router();
 
 router.use('/guests', guest);
 router.use('/users', user);
-router.use('/pay-concepts', payConcepts);
-router.use('/pay-methods', payMeths);
-router.use('/payments', payments);
-router.use('/invoices', invoices);
+router.use('/pay-concepts', payConcept);
+router.use('/pay-methods', payMeth);
+router.use('/payments', payment);
+router.use('/pay-reqs', payReq);
+router.use('/pay-settled', paySettled);
+router.use('/invoices', invoice);
 
 export default router;
