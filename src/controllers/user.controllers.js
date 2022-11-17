@@ -7,8 +7,9 @@ import {
     deleteOne as deleteElement,
     updateOne as updateElement
 } from '../helpers/crud.js';
-import { CARD_TYPE_CREDIT } from '../config/constants.js';
 import { removeNull, validateCardNumber } from '../helpers/utils.js';
+import fetch from '../helpers/fetch.js';
+import { BALANCE_GATEWAY_URL } from '../config/index.config.js';
 
 // USERS
 
@@ -144,7 +145,24 @@ export async function createPayMeth(req, res) {
         return res.status(500).json({ message: 'Internal server error' });
     }
 
-    // TODO: Validate card number with bank API
+    // try {
+    //     const { data } = await fetch(BALANCE_GATEWAY_URL + '/check-balance', {
+    //         method: 'POST',
+    //         headers: { 'Content-Type': 'application/json' },
+    //         body: {
+    //             user_id: userId,
+    //             card_numbers: [card_number],
+    //         },
+    //         timeout: 10000,
+    //     });
+    //     console.log(data);
+    //     if(data.cards !== true) {
+    //         return res.status(400).json({ message: 'Card does not exist in banks databases' });
+    //     }
+    // } catch(err) {
+    //     console.log(err);
+    //     return res.status(500).json({ message: 'Internal error when consuming Balance Gateway' });
+    // }
 
     try {
         payMeth = await createElement('payment_method', {
