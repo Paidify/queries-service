@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { readOne, readMany } from '../controllers/payReq.controllers.js';
+import { readOne, readMany, deleteAll } from '../controllers/payReq.controllers.js';
 import { ROLE_ADMIN } from '../config/constants.js';
 import parseQueryParams from '../middlewares/parseQueryParams.js';
 import { authRoles, verifyToken } from '../middlewares/authJwt.js';
@@ -10,5 +10,6 @@ const midAdmin = authRoles([ROLE_ADMIN]);
 
 router.get('/', [verifyToken, midAdmin, parseQueryParams], readMany);
 router.get('/:id', [verifyToken, midAdmin], readOne);
+router.delete('/', [verifyToken, midAdmin], deleteAll);
 
 export default router;

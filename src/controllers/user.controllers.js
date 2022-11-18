@@ -268,7 +268,7 @@ export async function readPayConcept(req, res) {
         payConcept = await readElement(
             'payment_concept_person',
             {
-                'payment_concept_person': ['id', 'ref_number', 'pay_before'],
+                'payment_concept_person': ['id', 'ref_number', 'pay_before', 'completed'],
                 'payment_concept': ['payment_concept', 'amount'],
             },
             [
@@ -305,7 +305,7 @@ export async function readPayConcepts(req, res) {
         payConcepts = await readElements(
             'payment_concept_person',
             {
-                'payment_concept_person': ['id', 'ref_number', 'pay_before'],
+                'payment_concept_person': ['id', 'ref_number', 'pay_before', 'completed'],
                 'payment_concept': ['payment_concept', 'amount'],
             },
             [

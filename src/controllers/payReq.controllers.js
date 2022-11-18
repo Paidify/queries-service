@@ -1,7 +1,8 @@
 import poolP from '../services/dbPaidify.js';
 import {
     readOne as readElement,
-    readMany as readElements
+    readMany as readElements,
+    deleteOne as deleteElement
 } from '../helpers/crud.js';
 
 export async function readOne(req, res) {
@@ -47,4 +48,23 @@ export async function readMany(req, res) {
     }
 
     res.status(200).json(payReqs);
+}
+
+export async function deleteAll(req, res) {
+    let payReqs;
+    try {
+        payReqs = await readElements('payment_req', { 'payment_req': ['payment_id'] }, null, null, null, null, poolP);
+    } catch (err) {
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+
+    let count = 0;
+    for (const payReq of payReqs) {
+        try {
+            await deleteElement('payment', { 'id': payReq.payment_id }, poolP);
+            count++;
+        } catch(err) {}
+    }
+
+    res.status(200).json({ message: `Deleted ${count} from ${payReqs.length}` })
 }
