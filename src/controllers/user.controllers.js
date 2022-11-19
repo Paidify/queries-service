@@ -145,24 +145,24 @@ export async function createPayMeth(req, res) {
         return res.status(500).json({ message: 'Internal server error' });
     }
 
-    // try {
-    //     const { data } = await fetch(BALANCE_GATEWAY_URL + '/check-balance', {
-    //         method: 'POST',
-    //         headers: { 'Content-Type': 'application/json' },
-    //         body: {
-    //             user_id: userId,
-    //             card_numbers: [card_number],
-    //         },
-    //         timeout: 10000,
-    //     });
-    //     console.log(data);
-    //     if(data.cards !== true) {
-    //         return res.status(400).json({ message: 'Card does not exist in banks databases' });
-    //     }
-    // } catch(err) {
-    //     console.log(err);
-    //     return res.status(500).json({ message: 'Internal error when consuming Balance Gateway' });
-    // }
+    try {
+        const { data } = await fetch(BALANCE_GATEWAY_URL + '/card-exists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: {
+                user_id: userId,
+                card_numbers: card_number,
+            },
+            timeout: 5000,
+        });
+        console.log(data);
+        if(data.exists !== true) {
+            return res.status(400).json({ message: 'Card does not exist in banks databases' });
+        }
+    } catch(err) {
+        console.log(err);
+        return res.status(500).json({ message: 'Internal error when consuming Balance Gateway' });
+    }
 
     try {
         payMeth = await createElement('payment_method', {
