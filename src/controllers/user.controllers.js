@@ -249,11 +249,11 @@ export async function deletePayMeth(req, res) {
     });
 }
 
-// PAYMENT CONCEPTS
+// PAYMENT CONCEPT PERSONS
 
-export async function readPayConcept(req, res) {
+export async function readPayConceptPerson(req, res) {
     const { id, payConceptId } = req.params;
-    let payConcept, personId;
+    let payConceptPerson, personId;
 
     try {
         personId = (await readElement('user', { 'user': ['person_id'] }, [], { id }, poolP)).person_id;
@@ -265,11 +265,11 @@ export async function readPayConcept(req, res) {
     }
 
     try {
-        payConcept = await readElement(
+        payConceptPerson = await readElement(
             'payment_concept_person',
             {
                 'payment_concept_person': ['id', 'ref_number', 'pay_before', 'completed'],
-                'payment_concept': ['payment_concept', 'amount'],
+                'payment_concept': ['id', 'payment_concept', 'amount'],
             },
             [
                 'JOIN payment_concept ON payment_concept_person.payment_concept_id = payment_concept.id'
@@ -284,13 +284,22 @@ export async function readPayConcept(req, res) {
         }
         return res.status(500).json({ message: 'Internal server error' });
     }
-    res.status(200).json(payConcept);
+    
+    payConceptPerson.payment_concept = {
+        id: payConceptPerson.payment_concept_id,
+        payment_concept: payConceptPerson.payment_concept,
+        amount: payConceptPerson.amount,
+    }
+    delete payConceptPerson.payment_concept_id;
+    delete payConceptPerson.amount;
+    
+    res.status(200).json(payConceptPerson);
 }
 
-export async function readPayConcepts(req, res) {
+export async function readPayConceptPersons(req, res) {
     const { id } = req.params;
     const { where, limit, order } = req.query;
-    let payConcepts, personId;
+    let payConceptPersons, personId;
 
     try {
         personId = (await readElement('user', { 'user': ['person_id'] }, [], { id }, poolP)).person_id;
@@ -302,11 +311,11 @@ export async function readPayConcepts(req, res) {
     }
 
     try {
-        payConcepts = await readElements(
+        payConceptPersons = await readElements(
             'payment_concept_person',
             {
                 'payment_concept_person': ['id', 'ref_number', 'pay_before', 'completed'],
-                'payment_concept': ['payment_concept', 'amount'],
+                'payment_concept': ['id', 'payment_concept', 'amount'],
             },
             [
                 'JOIN payment_concept ON payment_concept_person.payment_concept_id = payment_concept.id'
@@ -318,7 +327,19 @@ export async function readPayConcepts(req, res) {
         console.log(err);
         return res.status(500).json({ message: 'Internal server error' });
     }
-    res.status(200).json(payConcepts);
+
+    console.log(payConceptPersons);
+    for (let i = 0; i < payConceptPersons.length; i++) {
+        payConceptPersons[i].payment_concept = {
+            id: payConceptPersons[i].payment_concept_id,
+            payment_concept: payConceptPersons[i].payment_concept,
+            amount: payConceptPersons[i].amount,
+        }
+        delete payConceptPersons[i].payment_concept_id;
+        delete payConceptPersons[i].amount;
+    }
+    
+    res.status(200).json(payConceptPersons);
 }
 
 // PAYMENTS

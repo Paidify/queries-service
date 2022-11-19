@@ -3,7 +3,7 @@ import { ROLE_ADMIN, ROLE_DEFAULT } from '../config/constants.js';
 import {
     readOne, readMany,
     readPayMeth, readPayMeths, createPayMeth, deletePayMeth,
-    readPayConcept, readPayConcepts,
+    readPayConceptPerson, readPayConceptPersons,
     readPayment, readPayments,
     readInvoice, readInvoices,
 } from '../controllers/user.controllers.js';
@@ -24,8 +24,8 @@ router.get('/:id/pay-methods/:payMethId', [verifyToken, midAdminAndDefault, righ
 router.post('/:id/pay-methods', [verifyToken, midDefault, rightDefaultUser], createPayMeth);
 router.delete('/:id/pay-methods/:payMethId', [verifyToken, midDefault, rightDefaultUser], deletePayMeth);
 
-router.get('/:id/pay-concepts', [verifyToken, midAdminAndDefault, rightDefaultUser, parseQueryParams], readPayConcepts);
-router.get('/:id/pay-concepts/:payConceptId', [verifyToken, midAdminAndDefault, rightDefaultUser], readPayConcept);
+router.get('/:id/pay-concept-persons', [verifyToken, midAdminAndDefault, rightDefaultUser, parseQueryParams], readPayConceptPersons);
+router.get('/:id/pay-concept-persons/:payConceptId', [verifyToken, midAdminAndDefault, rightDefaultUser], readPayConceptPerson);
 
 router.get('/:id/payments', [verifyToken, midAdminAndDefault, rightDefaultUser, parseQueryParams], readPayments);
 router.get('/:id/payments/:paymentId', [verifyToken, midAdminAndDefault, rightDefaultUser], readPayment);
