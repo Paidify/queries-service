@@ -18,7 +18,7 @@ export async function readOne(req, res) {
                 'payment': ['num_installments', 'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
                 'user': ['id', 'person_id'],
-                'guest': ['id', 'first_name', 'last_name', 'doc_number']
+                'guest': ['id', 'email']
             },
             [
                 'JOIN payment_settled ON invoice.payment_settled_id = payment_settled.id',
@@ -42,42 +42,44 @@ export async function readOne(req, res) {
         invoice.campus = (await readElement(
             'campus', { 'campus': ['campus'] }, [], { 'id': invoice.campus_id }, poolU
         )).campus;
-        delete invoice.campus_id;
     } catch(err) {}
+    delete invoice.campus_id;
 
     try {
-        const { payment_concept, amount } = await readElement(
+        const { id, payment_concept, amount } = await readElement(
             'payment_concept',
-            { 'payment_concept': ['payment_concept', 'amount'] },
+            { 'payment_concept': ['id', 'payment_concept', 'amount'] },
             [],
             { 'id': invoice.payment_concept_id },
             poolU
         );
-        invoice.payment_concept = { payment_concept, amount };
-        delete invoice.payment_concept_id;
+        invoice.payment_concept = { id, payment_concept, amount };
     } catch(err) {}
+    delete invoice.payment_concept_id;
 
     if (invoice.guest_id) {
-        invoice.payer = {
-            guest_id: invoice.guest_id,
-            first_name: invoice.first_name,
-            last_name: invoice.last_name,
-            doc_number: invoice.doc_number
+        delete invoice.user_id;
+        delete invoice.person_id;
+        
+        invoice.guest = {
+            id: invoice.guest_id,
+            email: invoice.email
         };
         delete invoice.guest_id;
-        delete invoice.first_name;
-        delete invoice.last_name;
-        delete invoice.doc_number;
+        delete invoice.email;
     } else {
+        delete invoice.guest_id;
+        delete invoice.email;
+        
         try {
-            invoice.payer = await readOne(
+            invoice.user = await readElement(
                 'person',
-                { 'person': ['first_name', 'last_name', 'doc_number'] },
+                { 'person': ['email'] },
                 [],
                 { 'id': invoice.person_id },
                 poolU
             );
-            invoice.payer.user_id = invoice.user_id;
+            invoice.user.id = invoice.user_id;
             delete invoice.user_id;
             delete invoice.person_id;
         } catch(err) {}
@@ -98,7 +100,7 @@ export async function readMany(req, res) {
                 'payment': ['num_installments', 'campus_id', 'payment_concept_id'],
                 'card_type': ['card_type'],
                 'user': ['id', 'person_id'],
-                'guest': ['id', 'first_name', 'last_name', 'doc_number']
+                'guest': ['id', 'email']
             },
             [
                 'JOIN payment_settled ON invoice.payment_settled_id = payment_settled.id',
@@ -117,12 +119,19 @@ export async function readMany(req, res) {
 
     if(!invoices.length) return res.status(200).json([]);
 
-    let campuses = [], payConcepts = [];
+    let campuses, payConcepts;
     try {
         campuses = await readElements(
             'campus', { 'campus': ['id', 'campus'] }, [], {}, null, null, poolU
         );
     } catch(err) {}
+    if(campuses?.length) {
+        for(let i = 0; i < invoices.length; i++) {
+            const campus = campuses.find(campus => campus.id === invoices[i].campus_id);
+            invoices[i].campus = campus ? campus.campus : null;
+            delete invoices[i].campus_id;
+        }
+    }
 
     try {
         payConcepts = await readElements(
@@ -131,63 +140,55 @@ export async function readMany(req, res) {
             [], {}, null, null, poolU
         );
     } catch(err) {}
+    if(payConcepts?.length) {
+        for(let i = 0; i < invoices.length; i++) {
+            const payConcept = payConcepts.find(
+                payConcept => payConcept.id === invoices[i].payment_concept_id
+            );
+            invoices[i].payment_concept = payConcept ? {
+                id: payConcept.id,
+                payment_concept: payConcept.payment_concept,
+                amount: payConcept.amount
+            } : null;
+            delete invoices[i].payment_concept_id;
+        }
+    }
 
-    for(const inv of invoices) {
-        const campus = campuses.find(campus => campus.id === inv.campus_id);
-        inv.campus = campus ? campus.campus : undefined;
-        const payConcept = payConcepts.find(
-            payConcept => payConcept.id === inv.payment_concept_id
-        );
-        inv.payment_concept = payConcept ? {
-            payment_concept: payConcept.payment_concept,
-            amount: payConcept.amount
-        } : undefined;
-        delete inv.campus_id;
-        delete inv.payment_concept_id;
-        
-        if (inv.guest_id) {
-            inv.payer = {
-                guest_id: inv.guest_id,
-                first_name: inv.first_name,
-                last_name: inv.last_name,
-                doc_number: inv.doc_number
-            };
-            delete inv.guest_id;
-            delete inv.first_name;
-            delete inv.last_name;
-            delete inv.doc_number;
+    let invFromGuests = 0;
+    for(let i = 0; i < invoices.length; i++) {
+        if (invoices[i].guest_id) {
+            invFromGuests++;
+            delete invoices[i].user_id;
+            delete invoices[i].person_id;
+            invoices[i].guest = { id: invoices[i].guest_id, email: invoices[i].email };
+            delete invoices[i].guest_id;
+            delete invoices[i].email;
         }
     }
     
-    let users = invoices.filter(inv => inv.user_id).map(({ user_id, person_id }) => ({ user_id, person_id }));
-    let persons = [];
-    if(users.length) {
+    if(invFromGuests === invoices.length) return res.status(200).json(invoices); // all invoices were paid by guests
+    
+    const invUsers = invoices.filter(inv => inv.user_id);
+    let persons;
+    if(invUsers.length) {
         try {
-            persons = await readMany(
+            persons = await readElements(
                 'person',
-                { 'person': ['id', 'first_name', 'last_name', 'doc_number'] },
+                { 'person': ['id', 'email'] },
                 [],
-                { 'id': users.map(({ person_id }) => person_id) },
+                { 'id': invUsers.map(({ person_id }) => person_id) },
                 poolU
             );
         } catch(err) {}
     }
-
-    if(persons.length) {
-        for(const inv of invoices) {
-            if(inv.user_id) {
-                const person = persons.find(person => person.id === inv.person_id);
-                if(person) {
-                    inv.payer = {
-                        user_id: inv.user_id,
-                        first_name: person.first_name,
-                        last_name: person.last_name,
-                        doc_number: person.doc_number
-                    };
-                }
-                delete inv.user_id;
-                delete inv.person_id;
-            }
+    if(persons?.length) {
+        for(let i = 0; i < invUsers.length; i++) {
+            delete invUsers[i].guest_id;
+            delete invUsers[i].email;
+            const person = persons.find(person => person.id === invUsers[i].person_id);
+            invUsers[i].user = person ? { id: invUsers[i].user_id, email: person.email } : null;
+            delete invUsers[i].user_id;
+            delete invUsers[i].person_id;
         }
     }
 
