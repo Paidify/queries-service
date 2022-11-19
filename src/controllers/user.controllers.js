@@ -74,7 +74,7 @@ export async function readMany(req, res) {
         return res.status(500).json({ message: 'Internal server error' });
     }
 
-    if(!users.length) return res.status(200).json([]);
+    if(!users?.length) return res.status(200).json([]);
 
     try {
         persons = await readElements(
@@ -145,24 +145,24 @@ export async function createPayMeth(req, res) {
         return res.status(500).json({ message: 'Internal server error' });
     }
 
-    // try {
-    //     const { data } = await fetch(BALANCE_GATEWAY_URL + '/check-balance', {
-    //         method: 'POST',
-    //         headers: { 'Content-Type': 'application/json' },
-    //         body: {
-    //             user_id: userId,
-    //             card_numbers: [card_number],
-    //         },
-    //         timeout: 10000,
-    //     });
-    //     console.log(data);
-    //     if(data.cards !== true) {
-    //         return res.status(400).json({ message: 'Card does not exist in banks databases' });
-    //     }
-    // } catch(err) {
-    //     console.log(err);
-    //     return res.status(500).json({ message: 'Internal error when consuming Balance Gateway' });
-    // }
+    try {
+        const { data } = await fetch(BALANCE_GATEWAY_URL + '/card-exists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: {
+                user_id: userId,
+                card_numbers: card_number,
+            },
+            timeout: 5000,
+        });
+        console.log(data);
+        if(data.exists !== true) {
+            return res.status(400).json({ message: 'Card does not exist in banks databases' });
+        }
+    } catch(err) {
+        console.log(err);
+        return res.status(500).json({ message: 'Internal error when consuming Balance Gateway' });
+    }
 
     try {
         payMeth = await createElement('payment_method', {
@@ -387,19 +387,23 @@ export async function readPayment(req, res) {
             'campus', { 'campus': ['campus'] }, [], { 'id': payment.campus_id }, poolU
         )).campus;
     } catch(err) {}
+    delete payment.campus_id;
 
+    let payConcept;
     try {
-        const { payment_concept, amount } = await readElement(
+        payConcept = await readElement(
             'payment_concept',
             { 'payment_concept': ['payment_concept', 'amount'] },
             [],
             { 'id': payment.payment_concept_id },
             poolU
         );
-        payment.payment_concept = { payment_concept, amount };
     } catch(err) {}
-
-    delete payment.campus_id;
+    payment.payment_concept = {
+        id: payment.payment_concept_id,
+        payment_concept: payConcept ? payConcept.payment_concept : null,
+        amount: payConcept ? payConcept.amount : null,
+    };
     delete payment.payment_concept_id;
     
     res.status(200).json(payment);
@@ -440,10 +444,17 @@ export async function readPayments(req, res) {
     }
     for (const payment of payments) removeNull(payment);
     
-    let campuses = [], payConcepts = [];
+    let campuses, payConcepts;
     try {
         campuses = await readElements('campus', { 'campus': ['id', 'campus'] }, [], {}, null, null, poolU);
     } catch(err) {}
+    for(let i = 0; i < payments.length; i++) {
+        if(campuses?.length) {
+            const campus = campuses.find(campus => campus.id === payments[i].campus_id);
+            payments[i].campus = campus ? campus.campus : null;
+        }
+        delete payments[i].campus_id;
+    }
 
     try {
         payConcepts = await readElements(
@@ -452,14 +463,17 @@ export async function readPayments(req, res) {
             [], {}, null, null, poolU
         );
     } catch(err) {}
-
     for(let i = 0; i < payments.length; i++) {
-        payments[i].campus = campuses.find(campus => campus.id === payments[i].campus_id).campus;
-        const { payment_concept, amount } = payConcepts.find(
-            payConcept => payConcept.id === payments[i].payment_concept_id
-        );
-        payments[i].payment_concept = { payment_concept, amount };
-        delete payments[i].campus_id;
+        if(payConcepts?.length) {
+            const payConcept = payConcepts.find(
+                payConcept => payConcept.id === payments[i].payment_concept_id
+            );
+            payments[i].payment_concept = {
+                id: payments[i].payment_concept_id,
+                payment_concept: payConcept ? payConcept.payment_concept : null,
+                amount: payConcept ? payConcept.amount : null
+            }
+        }
         delete payments[i].payment_concept_id;
     }
 
@@ -510,19 +524,23 @@ export async function readInvoice(req, res) {
             'campus', { 'campus': ['campus'] }, [], { 'id': invoice.campus_id }, poolU
         )).campus;
     } catch(err) {}
+    delete invoice.campus_id;
 
+    let payConcept;
     try {
-        const { payment_concept, amount } = await readElement(
+        payConcept = await readElement(
             'payment_concept',
             { 'payment_concept': ['payment_concept', 'amount'] },
             [],
             { 'id': invoice.payment_concept_id },
             poolU
         );
-        invoice.payment_concept = { payment_concept, amount };
     } catch(err) {}
-
-    delete invoice.campus_id;
+    invoice.payment_concept = {
+        id: invoice.payment_concept_id,
+        payment_concept: payConcept ? payConcept.payment_concept : null,
+        amount: payConcept ? payConcept.amount : null
+    };
     delete invoice.payment_concept_id;
     
     res.status(200).json(invoice);
@@ -531,7 +549,7 @@ export async function readInvoice(req, res) {
 export async function readInvoices(req, res) {
     const { id } = req.params;
     const { where, limit, order } = req.query;
-    let payerId, invoices = [];
+    let payerId, invoices;
 
     try {
         payerId = (await readElement('user', { 'user': ['payer_id'] }, [], { id }, poolP)).id;
@@ -564,10 +582,17 @@ export async function readInvoices(req, res) {
         return res.status(500).json({ message: 'Internal server error' });
     }
 
-    let campuses = [], payConcepts = [];
+    if(!invoices?.length) return res.status(200).json([]);
+
+    let campuses, payConcepts;
     try {
         campuses = await readElements('campus', { 'campus': ['id', 'campus'] }, [], {}, null, null, poolU);
     } catch(err) {}
+    for(let i = 0; i < invoices.length; i++) {
+        const campus = campuses ? campuses.find(campus => campus.id === invoices[i].campus_id) : null;
+        invoices[i].campus = campus ? campus.campus : null;
+        delete invoices[i].campus_id;
+    }
 
     try {
         payConcepts = await readElements(
@@ -576,14 +601,17 @@ export async function readInvoices(req, res) {
             [], {}, null, null, poolU
         );
     } catch(err) {}
-
     for(let i = 0; i < invoices.length; i++) {
-        invoices[i].campus = campuses.find(campus => campus.id === invoices[i].campus_id).campus;
-        const { payment_concept, amount } = payConcepts.find(
-            payConcept => payConcept.id === invoices[i].payment_concept_id
-        );
-        invoices[i].payment_concept = { payment_concept, amount };
-        delete invoices[i].campus_id;
+        if(payConcepts?.length) {
+            const payConcept = payConcepts.find(
+                payConcept => payConcept.id === invoices[i].payment_concept_id
+            );
+            invoices[i].payment_concept = {
+                id: invoices[i].payment_concept_id,
+                payment_concept: payConcept ? payConcept.payment_concept : null,
+                amount: payConcept ? payConcept.amount : null
+            }
+        }
         delete invoices[i].payment_concept_id;
     }
 

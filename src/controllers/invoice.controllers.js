@@ -45,16 +45,21 @@ export async function readOne(req, res) {
     } catch(err) {}
     delete invoice.campus_id;
 
+    let payConcept;
     try {
-        const { id, payment_concept, amount } = await readElement(
+        payConcept = await readElement(
             'payment_concept',
-            { 'payment_concept': ['id', 'payment_concept', 'amount'] },
+            { 'payment_concept': ['payment_concept', 'amount'] },
             [],
             { 'id': invoice.payment_concept_id },
             poolU
         );
-        invoice.payment_concept = { id, payment_concept, amount };
     } catch(err) {}
+    invoice.payment_concept = {
+        id: invoice.payment_concept_id,
+        payment_concept: payConcept ? payConcept.payment_concept : null,
+        amount: payConcept ? payConcept.amount : null
+    };
     delete invoice.payment_concept_id;
 
     if (invoice.guest_id) {
@@ -117,7 +122,7 @@ export async function readMany(req, res) {
         return res.status(500).json({ message: 'Internal server error' });
     }
 
-    if(!invoices.length) return res.status(200).json([]);
+    if(!invoices?.length) return res.status(200).json([]);
 
     let campuses, payConcepts;
     try {
@@ -125,12 +130,12 @@ export async function readMany(req, res) {
             'campus', { 'campus': ['id', 'campus'] }, [], {}, null, null, poolU
         );
     } catch(err) {}
-    if(campuses?.length) {
-        for(let i = 0; i < invoices.length; i++) {
+    for(let i = 0; i < invoices.length; i++) {
+        if(campuses?.length) {
             const campus = campuses.find(campus => campus.id === invoices[i].campus_id);
             invoices[i].campus = campus ? campus.campus : null;
-            delete invoices[i].campus_id;
         }
+        delete invoices[i].campus_id;
     }
 
     try {
@@ -140,18 +145,18 @@ export async function readMany(req, res) {
             [], {}, null, null, poolU
         );
     } catch(err) {}
-    if(payConcepts?.length) {
-        for(let i = 0; i < invoices.length; i++) {
+    for(let i = 0; i < invoices.length; i++) {
+        if(payConcepts?.length) {
             const payConcept = payConcepts.find(
                 payConcept => payConcept.id === invoices[i].payment_concept_id
             );
-            invoices[i].payment_concept = payConcept ? {
-                id: payConcept.id,
-                payment_concept: payConcept.payment_concept,
-                amount: payConcept.amount
-            } : null;
-            delete invoices[i].payment_concept_id;
+            invoices[i].payment_concept = {
+                id: invoices[i].payment_concept_id,
+                payment_concept: payConcept ? payConcept.payment_concept : null,
+                amount: payConcept ? payConcept.amount : null
+            };
         }
+        delete invoices[i].payment_concept_id;
     }
 
     let invFromGuests = 0;

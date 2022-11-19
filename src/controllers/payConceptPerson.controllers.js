@@ -79,7 +79,7 @@ export async function readMany(req, res) {
         return res.status(500).json({ message: 'Internal server error' });
     }
 
-    if(!payConcepts.length) return res.status(200).json([]);
+    if(!payConcepts?.length) return res.status(200).json([]);
 
     for(let i = 0; i < payConcepts.length; i++) {
         payConcepts[i].payment_concept = {
