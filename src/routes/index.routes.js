@@ -8,6 +8,7 @@ import payment from './payment.routes.js';
 import payReq from './payReq.routes.js';
 import paySettled from './paySettled.routes.js';
 import invoice from './invoice.routes.js';
+import campus from './campus.routes.js';
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/payments', payment);
 router.use('/pay-reqs', payReq);
 router.use('/pay-settled', paySettled);
 router.use('/invoices', invoice);
+router.use('/campuses', campus);
 
 export default router;
