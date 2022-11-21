@@ -80,9 +80,9 @@ export async function readOne(req, res) {
                 poolU
             );
             payment.user.id = payment.user_id;
-            delete payment.user_id;
-            delete payment.person_id;
         } catch(err) {}
+        delete payment.user_id;
+        delete payment.person_id;
     }
     
     res.status(200).json(payment);
@@ -175,19 +175,19 @@ export async function readMany(req, res) {
                 { 'person': ['id', 'email'] },
                 [],
                 { 'id': paymentsUsers.map(({ person_id }) => person_id) },
-                poolU
+                null, null, poolU
             );
         } catch(err) {}
     }
-    if(persons?.length) {
-        for(let i = 0; i < paymentsUsers.length; i++) {
-            delete paymentsUsers[i].guest_id;
-            delete paymentsUsers[i].email;
+    for(let i = 0; i < paymentsUsers.length; i++) {
+        delete paymentsUsers[i].guest_id;
+        delete paymentsUsers[i].email;
+        if(persons?.length) {
             const person = persons.find(person => person.id === paymentsUsers[i].person_id);
             paymentsUsers[i].user = person ? { id: paymentsUsers[i].user_id, email: person.email } : null;
-            delete paymentsUsers[i].user_id;
-            delete paymentsUsers[i].person_id;
         }
+        delete paymentsUsers[i].user_id;
+        delete paymentsUsers[i].person_id;
     }
 
     res.status(200).json(payments);

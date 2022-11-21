@@ -354,7 +354,7 @@ export async function readPayment(req, res) {
     let payerId, payment;
 
     try {
-        payerId = (await readElement('user', { 'user': ['payer_id'] }, [], { id }, poolP)).id;
+        payerId = (await readElement('user', { 'user': ['payer_id'] }, [], { id }, poolP)).payer_id;
     } catch(err) {
         if(err.message === 'Not found') {
             return res.status(404).json({ message: 'Person not found' });
@@ -420,7 +420,7 @@ export async function readPayments(req, res) {
     let payerId, payments;
 
     try {
-        payerId = (await readElement('user', { 'user': ['payer_id'] }, [], { id }, poolP)).id;
+        payerId = (await readElement('user', { 'user': ['payer_id'] }, [], { id }, poolP)).payer_id;
     } catch(err) {
         if(err.message === 'Not found') {
             return res.status(404).json({ message: 'Person not found' });
@@ -447,6 +447,7 @@ export async function readPayments(req, res) {
     } catch(err) {
         return res.status(500).json({ message: 'Internal server error' });
     }
+    console.log(payments);
     for (const payment of payments) removeNull(payment);
     
     let campuses, payConcepts;
@@ -492,7 +493,7 @@ export async function readInvoice(req, res) {
     let payerId, invoice;
 
     try {
-        payerId = (await readElement('user', { 'user': ['payer_id'] }, [], { id }, poolP)).id;
+        payerId = (await readElement('user', { 'user': ['payer_id'] }, [], { id }, poolP)).payer_id;
     } catch(err) {
         if(err.message === 'Not found') {
             return res.status(404).json({ message: 'Person not found' });
@@ -557,7 +558,7 @@ export async function readInvoices(req, res) {
     let payerId, invoices;
 
     try {
-        payerId = (await readElement('user', { 'user': ['payer_id'] }, [], { id }, poolP)).id;
+        payerId = (await readElement('user', { 'user': ['payer_id'] }, [], { id }, poolP)).payer_id;
     } catch(err) {
         if(err.message === 'Not found') {
             return res.status(404).json({ message: 'Person not found' });
