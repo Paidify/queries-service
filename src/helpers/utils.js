@@ -35,3 +35,11 @@ export function validateCardNumber(cardNumber) {
     cardNumber = String(cardNumber);
     return /^\d{16}$/.test(cardNumber) && CARD_FIRST_DIGIT_ALLOWED.includes(Number(cardNumber[0]));
 }
+
+export function cardIsWestern(card) {
+    return String(card)[1] >= 5;
+}
+
+export function parseOwnerName(owner) {
+    return owner.toLowerCase().split(' ').map((name) => name[0].toUpperCase() + name.slice(1)).join(' ');
+}

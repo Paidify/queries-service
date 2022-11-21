@@ -19,8 +19,9 @@ export const DB_PASSWORD = process.env.DB_PASSWORD || 'secret';
 export const DB_PAIDIFY_SCHEMA = process.env.DB_PAIDIFY_SCHEMA || 'paidify';
 export const DB_UNIV_SCHEMA = process.env.DB_UNIV_SCHEMA || 'univ';
 
-// balance_gateway
-export const BALANCE_GATEWAY_URL = process.env.BALANCE_GATEWAY_URL || '';
+// banks endpoints
+export const WESTERN_BANK_API_ENDPOINT = process.env.WESTERN_BANK_API_ENDPOINT || 'http://localhost:3002';
+export const EAST_BANK_API_ENDPOINT = process.env.EAST_BANK_API_ENDPOINT || 'http://localhost:3003';
 
 // jwt
 export const JWT_SECRET = process.env.JWT_SECRET || 'secret';
