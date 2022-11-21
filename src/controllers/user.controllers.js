@@ -122,9 +122,9 @@ export async function createPayMeth(req, res) {
         return res.status(400).json({ message: 'Bad request' });
     }
     
-    let userId;
+    let user;
     try {
-        userId = (await readElement('user', { 'user': ['id'] }, [], { id }, poolP)).id;
+        user = await readElement('user', { 'user': ['id', 'person_id'] }, [], { id }, poolP);
     } catch(err) {
         if(err.message === 'Not found') {
             return res.status(404).json({ message: 'Person not found' });
@@ -171,7 +171,7 @@ export async function createPayMeth(req, res) {
     let payMeth;
     try {
         payMeth = await createElement('payment_method', {
-            user_id: userId, card_number, card_type_id: cardTypeId, owner
+            user_id: user.id, card_number, card_type_id: cardTypeId, owner
         }, poolP);
     } catch (err) {
         console.log(err);
