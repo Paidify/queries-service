@@ -7,9 +7,9 @@ import {
     deleteOne as deleteElement,
     updateOne as updateElement
 } from '../helpers/crud.js';
-import { removeNull, validateCardNumber } from '../helpers/utils.js';
+import { cardIsWestern, parseOwnerName, removeNull, validateCardNumber } from '../helpers/utils.js';
 import fetch from '../helpers/fetch.js';
-import { BALANCE_GATEWAY_URL } from '../config/index.config.js';
+import { EAST_BANK_API_ENDPOINT, WESTERN_BANK_API_ENDPOINT } from '../config/index.config.js';
 
 // USERS
 
@@ -122,14 +122,51 @@ export async function createPayMeth(req, res) {
         return res.status(400).json({ message: 'Bad request' });
     }
     
-    let userId;
+    let user;
     try {
-        userId = (await readElement('user', { 'user': ['id'] }, [], { id }, poolP)).id;
+        user = await readElement('user', { 'user': ['id', 'person_id'] }, [], { id }, poolP);
     } catch(err) {
         if(err.message === 'Not found') {
             return res.status(404).json({ message: 'Person not found' });
         }
         return res.status(500).json({ message: 'Internal server error' });
+    }
+
+    let docNumber;
+    try {
+        docNumber = (await readElement(
+            'person',
+            { 'person': ['doc_number'] },
+            null,
+            { 'id': user.person_id },
+            poolU
+        )).doc_number;
+    } catch (err) {
+        if (err.message === 'Not found') return res.status(404).json({ message: 'Person not found' });
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+
+    try {
+        const { data, status } = await fetch(
+            cardIsWestern(card_number) ? WESTERN_BANK_API_ENDPOINT : EAST_BANK_API_ENDPOINT,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    'id': docNumber,
+                    'nombre': parseOwnerName(owner),
+                    'nroTarjeta': card_number,
+                }),
+            }
+        );
+        console.log(data);
+        if (status !== 200) {
+            return res.status(404).json({ message: `Card not found in ${cardIsWestern(card_number) ? 'Western' : 'East'} Bank` });
+        }
+    } catch (err) {
+        return res.status(500).json({
+            message: `Internal server error when requesting ${cardIsWestern(card_number) ? 'Western' : 'East'} Bank`
+        });
     }
 
     let cardTypeId, payMeth;
@@ -146,27 +183,8 @@ export async function createPayMeth(req, res) {
     }
 
     try {
-        const { data } = await fetch(BALANCE_GATEWAY_URL + '/card-exists', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: {
-                user_id: userId,
-                card_numbers: card_number,
-            },
-            timeout: 5000,
-        });
-        console.log(data);
-        if(data.exists !== true) {
-            return res.status(400).json({ message: 'Card does not exist in banks databases' });
-        }
-    } catch(err) {
-        console.log(err);
-        return res.status(500).json({ message: 'Internal error when consuming Balance Gateway' });
-    }
-
-    try {
         payMeth = await createElement('payment_method', {
-            user_id: userId, card_number, card_type_id: cardTypeId, owner
+            user_id: user.id, card_number, card_type_id: cardTypeId, owner
         }, poolP);
     } catch (err) {
         console.log(err);
